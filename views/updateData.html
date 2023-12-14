@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Veri Güncelleme</title>
+</head>
+<body>
+    <h1>Veri Güncelleme</h1>
+    <form method="post" action="/updateData">
+        <input type="text" name="_id" placeholder="kullanıcının id'si">
+        <input type="email" name="email" placeholder="E-posta Adresi">
+        <input type="text" name="username" placeholder="Kullanıcı Adı">
+        <input type="date" name="birthday" placeholder="Birthday">
+        <input type="text" name="gender" placeholder="Gender">
+        <input type="text" name="location" placeholder="location">
+
+        <button type="submit">Güncelle</button>
+        <button type="button" onclick="cancelSubscription()">Abonelik iptal</button>
+        <button type="button" onclick="extendSubscription()">Abonelik uzatma</button>
+
+<script>
+    function cancelSubscription() {
+      const userId = document.querySelector('input[name="_id"]').value;
+  
+      // Perform AJAX request to update subscription_end_date
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/cancelSubscription', true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+  
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState === 4) {
+          if (xhr.status === 200) {
+            // Handle the success response if needed
+            console.log(xhr.responseText);
+          } else {
+            // Handle the error response if needed
+            console.error(xhr.responseText);
+          }
+        }
+      };
+  
+      const data = JSON.stringify({ userId });
+      xhr.send(data);
+    }
+  </script>
+  <script>
+    function extendSubscription() {
+      const userId = document.querySelector('input[name="_id"]').value;
+  
+      // Perform AJAX request to update subscription_end_date
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/extendSubscription', true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+  
+      xhr.onreadystatechange = function () {
+        if (xhr.readyState === 4) {
+          if (xhr.status === 200) {
+            // Handle the success response if needed
+            console.log(xhr.responseText);
+          } else {
+            // Handle the error response if needed
+            console.error(xhr.responseText);
+          }
+        }
+      };
+  
+      const data = JSON.stringify({ userId });
+      xhr.send(data);
+    }
+  </script>
+    </form>
+</body>
+</html>
