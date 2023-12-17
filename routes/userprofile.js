@@ -57,6 +57,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.use(cors());
 
 
+
 // Giriş sayfası
 app.get('/login', (req, res) => {
   res.sendFile(path.join(__dirname, '../views/login.html'));
@@ -100,18 +101,35 @@ app.post('/register', async (req, res) => {
   }
 });
 
+
 //Giriş işlemi
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
-  // Kullanıcıyı giriş yap
+
   try {
     const user = await User.findOne({ username, password });
 
     if (user) {
-      req.session.userId = user.username;
-      console.log("Kullanıcı bulundu ve giriş yapıldı");
-      
-      //res.status(200).json({ message: 'User added to the database and logged in' });
+      // MongoDB'den gelen kullanıcı verilerini JSON formatında oluştur
+      const userJson = {
+        username: user.username,
+        gender: user.gender,
+        birthday: user.birthday,
+        location: user.location,
+        subscription_start_date: user.subscriptionStartDate,
+        subscription_end_date: user.subscriptionEndDate,
+        email: user.email,
+      };
+
+      // Tarayıcıya JSON response gönder
+      res.status(200).json({
+        success: true,
+        data: userJson,
+        error: null
+      });
+
+      req.session.userId = user.username; // Oturum açıldığında kullanıcı kimliğini sakla
+
     } else {
       console.log('Kullanıcı bulunamadı');
       res.status(401).json({ error: 'Invalid username or password' });
@@ -122,7 +140,31 @@ app.post('/login', async (req, res) => {
   }
 });
 
+app.get('/get-user/:userId', async (req, res) => {
+  const userId = req.params.userId;
 
+  try {
+    // ObjectID kontrolü
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ success: false, data: null, error: 'Geçersiz ObjectID' });
+    }
+
+    const user = await User.findById(userId);
+
+    if (user) {
+      res.status(200).json({
+        success: true,
+        data: user,
+        error: null
+      });
+    } else {
+      res.status(404).json({ success: false, data: null, error: 'Kullanıcı bulunamadı' });
+    }
+  } catch (error) {
+    console.error('MongoDB Error:', error);
+    res.status(500).json({ success: false, data: null, error: 'MongoDB Error: ' + error.message });
+  }
+});
 
 // Yeni şifre sıfırlama işlemini gerçekleştir
 app.post('/forget-password', async (req, res) => {
@@ -130,109 +172,210 @@ app.post('/forget-password', async (req, res) => {
 
   // Yeni şifre ile tekrar girilen şifrenin uyuşup uyuşmadığını kontrol edin
   if (newPassword !== confirmNewPassword) {
-      return res.status(400).send('Yeni şifreler uyuşmuyor');
+    return res.status(400).json({ success: false, error: 'Yeni şifreler uyuşmuyor' });
   }
 
-  // E-posta, kullanıcı adı ve yeni şifre ile kullanıcıyı bulup şifresini güncelleyin
   try {
-      const user = await User.findOne({ email, username });
-      if (!user) {
-          return res.status(404).send('Kullanıcı bulunamadı');
-      }
+    // Kullanıcıyı bulup şifresini güncelle
+    const user = await User.findOne({ email, username });
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'Kullanıcı bulunamadı' });
+    }
 
-      // Kullanıcının şifresini güncelleyin
-      user.password = newPassword;
-      await user.save();
+    // Kullanıcının şifresini güncelle
+    user.password = newPassword;
+    await user.save();
 
-      res.send('Şifreniz başarıyla sıfırlandı.');
+    // Kullanıcının tüm bilgilerini bir JSON nesnesi olarak oluştur
+    const userJson = {
+      username: user.username,
+      gender: user.gender,
+      birthday: user.birthday,
+      location: user.location,
+      subscription_start_date: user.subscriptionStartDate,
+      subscription_end_date: user.subscriptionEndDate,
+      email: user.email,
+    };
+
+    // JSON response gönder
+    res.status(200).json({
+      success: true,
+      data: userJson,
+      message: 'Şifreniz başarıyla sıfırlandı.',
+      error: null,
+    });
   } catch (error) {
-      console.error(error);
-      res.status(500).send('Şifre sıfırlama hatası: ' + error.message);
+    console.error('Şifre sıfırlama hatası:', error);
+    res.status(500).json({ success: false, error: 'Şifre sıfırlama hatası: ' + error.message });
   }
 });
 app.post('/updateData', async (req, res) => {
   const { _id, email, username, birthday, gender, location } = req.body;
 
   try {
-    // Belirtilen _id'ye sahip kullanıcıyı bul
+    // Belirtilen _id'ye sahip kullanıcıyı bul ve güncelle
     const user = await User.findByIdAndUpdate(
-      _id,
-      { email, username, birthday, gender, location },
-      { new: true } // Güncellenmiş belgeyi döndürmek için
+        _id,
+        { email, username, birthday, gender, location },
+        { new: true } // Güncellenmiş belgeyi döndürmek için
     );
+
     if (!user) {
-      return res.status(404).send('Kullanıcı bulunamadı');
+      return res.status(404).json({ success: false, error: 'Kullanıcı bulunamadı' });
     }
-    res.send('Kullanıcı verileri başarıyla güncellendi.');
+
+    // Güncellenmiş kullanıcı bilgilerini bir JSON nesnesi olarak oluştur
+    const updatedUserJson = {
+      username: user.username,
+      gender: user.gender,
+      birthday: user.birthday,
+      location: user.location,
+      subscription_start_date: user.subscriptionStartDate,
+      subscription_end_date: user.subscriptionEndDate,
+      email: user.email,
+    };
+
+    // JSON response gönder
+    res.status(200).json({
+      success: true,
+      data: updatedUserJson,
+      message: 'Kullanıcı verileri başarıyla güncellendi.',
+      error: null,
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).send('Kullanıcı verilerini güncelleme hatası: ' + error.message);
+    console.error('Kullanıcı verilerini güncelleme hatası:', error);
+    res.status(500).json({ success: false, error: 'Kullanıcı verilerini güncelleme hatası: ' + error.message });
   }
 });
 app.post('/updateData', async (req, res) => {
   res.send("çalışıyor.")
 });
 // Assuming you have already defined your User model and required necessary modules
+const { ObjectId } = require('mongodb');
 
 app.post('/cancelSubscription', async (req, res) => {
   const { userId } = req.body;
 
   try {
+    // Belirtilen userId'ye sahip kullanıcıyı bul ve abonelik bilgilerini güncelle
     const user = await User.findByIdAndUpdate(
-      userId,
-      { subscription_end_date: new Date() }, // Set subscription_end_date to the current date
-      { new: true }
+        userId,
+        { subscription_end_date: new Date() },
+        { new: true }
     );
 
     if (!user) {
-      return res.status(404).send('Kullanıcı bulunamadı');
+      return res.status(404).json({ success: false, error: 'Kullanıcı bulunamadı' });
     }
 
-    res.send('Abonelik iptali başarıyla gerçekleşti.');
+    // Güncellenmiş abonelik bilgilerini bir JSON nesnesi olarak oluştur
+    const updatedSubscriptionJson = {
+      username: user.username,
+      subscription_start_date: user.subscriptionStartDate,
+      subscription_end_date: user.subscriptionEndDate,
+    };
+
+    // JSON response gönder
+    res.status(200).json({
+      success: true,
+      data: updatedSubscriptionJson,
+      message: 'Abonelik iptali başarıyla gerçekleşti.',
+      error: null,
+    });
   } catch (error) {
     console.error('Abonelik iptali hatası:', error);
-    res.status(500).send('Abonelik iptali hatası: ' + error.message);
+    res.status(500).json({ success: false, error: 'Abonelik iptali hatası: ' + error.message });
   }
 });
+
 app.post('/extendSubscription', async (req, res) => {
   const { userId } = req.body;
 
   try {
+    // Belirtilen userId'ye sahip kullanıcıyı bul ve abonelik bilgilerini güncelle
     const user = await User.findByIdAndUpdate(
-      userId,
-      
-      { subscription_start_date: new Date()}, // Set subscription_end_date to the current date
-      { new: true }
+        userId,
+        { subscription_start_date: new Date() },
+        { new: true }
     );
 
     if (!user) {
-      return res.status(404).send('Kullanıcı bulunamadı');
+      return res.status(404).json({ success: false, error: 'Kullanıcı bulunamadı' });
     }
-    console.log('Abonelik başarıyla uzatıldı.');
-    res.send('Abonelik başarıyla uzatıldı.');
-    
+
+    // Güncellenmiş abonelik bilgilerini bir JSON nesnesi olarak oluştur
+    const updatedSubscriptionJson = {
+      username: user.username,
+      subscription_start_date: user.subscriptionStartDate,
+      subscription_end_date: user.subscriptionEndDate,
+    };
+
+    // JSON response gönder
+    res.status(200).json({
+      success: true,
+      data: updatedSubscriptionJson,
+      message: 'Abonelik başarıyla uzatıldı.',
+      error: null,
+    });
   } catch (error) {
     console.error('Abonelik uzatılamadı:', error);
-    res.status(500).send('Abonelik uzatılamadı: ' + error.message);
+    res.status(500).json({ success: false, error: 'Abonelik uzatılamadı: ' + error.message });
+  }
+});
+app.get('/logout', async (req, res) => {
+  try {
+    // Özel bir MongoDB sorgusu ile kullanıcı verilerini çekme (örneğin, kullanıcı ID'sine göre)
+    const userId = req.session.userId; // Kullanıcı ID'si önceden oturumda saklanmış olmalı
+    const user = await User.findById(userId);
+
+    if (!user) {
+      console.error('Kullanıcı bulunamadı');
+      return res.status(404).json({ success: false, error: 'Kullanıcı bulunamadı' });
+    }
+
+    // Oturumu sonlandır
+    req.session.destroy();
+    console.log('Kullanıcı çıkış yaptı');
+
+    // Kullanıcı bilgilerini JSON response gönder
+    res.status(200).json({
+      success: true,
+      data: {
+        userId: user._id,
+        username: user.username,
+        email: user.email,
+        birthday: user.birthday,
+        gender: user.gender,
+        location: user.location,
+        subscription_start_date: user.subscriptionStartDate,
+        subscription_end_date: user.subscriptionEndDate,
+        // ... Diğer kullanıcı bilgileri
+      },
+      message: 'Kullanıcı çıkış yaptı.',
+      error: null,
+    });
+  } catch (error) {
+    console.error('Logout hatası:', error);
+    res.status(500).json({ success: false, error: 'Logout hatası: ' + error.message });
   }
 });
 
-
-
-app.get('/logout', (req, res) => {
-  req.session.destroy();
-  console.log("Kullancı çıkış yaptı");
-  res.redirect('/login');
-});
 
 // Create a new user activity
 app.post('/api/user-activity', async (req, res) => {
   try {
     const newUserActivity = new UserActivity(req.body);
     const savedUserActivity = await newUserActivity.save();
-    res.json(savedUserActivity);
+
+    // Oluşturulan kullanıcı aktivitesinin tüm bilgilerini JSON formatında gönder
+    res.json({
+      success: true,
+      data: savedUserActivity,
+      error: null
+    });
+
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    res.status(400).json({ success: false, data: null, error: error.message });
   }
 });
 
@@ -240,25 +383,48 @@ app.post('/api/user-activity', async (req, res) => {
 app.get('/api/user-activity', async (req, res) => {
   try {
     const userActivities = await UserActivity.find();
-    //res.json(userActivities);
-   res.send("çalıştı");
-    console.log("whatsup riri?");
-    //res.redirect('/api/story');
+    //   //res.json(userActivities);
+    //  res.send("çalıştı");
+    //   console.log("whatsup riri?");
+    //   //res.redirect('/api/story');
+    // } catch (error) {
+    //   res.status(500).json({ error: error.message });
+    // }
+    // Tüm kullanıcı aktivitelerinin tüm bilgilerini JSON formatında gönder
+    res.json({
+      success: true,
+      data: userActivities,
+      error: null
+    });
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ success: false, data: null, error: error.message });
   }
 });
 
 // Get a specific user activity by ID
 app.get('/api/user-activity/:id', async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Geçersiz ObjectID' });
+    }
     const userActivity = await UserActivity.findById(req.params.id);
     if (!userActivity) {
       return res.status(404).json({ error: 'User activity not found' });
     }
-    res.json(userActivity);
+    //   res.json(userActivity);
+    // } catch (error) {
+    //   res.status(500).json({ error: error.message });
+    // }
+    // Kullanıcı aktivitesinin tüm bilgilerini JSON formatında gönder
+    res.json({
+      success: true,
+      data: userActivity,
+      error: null
+    });
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ success: false, data: null, error: error.message });
   }
 });
 
@@ -266,16 +432,26 @@ app.get('/api/user-activity/:id', async (req, res) => {
 app.put('/api/user-activity/:id', async (req, res) => {
   try {
     const updatedUserActivity = await UserActivity.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
+        req.params.id,
+        req.body,
+        { new: true }
     );
     if (!updatedUserActivity) {
       return res.status(404).json({ error: 'User activity not found' });
     }
-    res.json(updatedUserActivity);
+    //   res.json(updatedUserActivity);
+    // } catch (error) {
+    //   res.status(400).json({ error: error.message });
+    // }
+    // Güncellenen kullanıcı aktivitesinin tüm bilgilerini JSON formatında gönder
+    res.json({
+      success: true,
+      data: updatedUserActivity,
+      error: null
+    });
+
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    res.status(400).json({ success: false, data: null, error: error.message });
   }
 });
 
@@ -283,25 +459,41 @@ app.put('/api/user-activity/:id', async (req, res) => {
 app.delete('/api/user-activity/:id', async (req, res) => {
   try {
     const deletedUserActivity = await UserActivity.findByIdAndDelete(
-      req.params.id
+        req.params.id
     );
     if (!deletedUserActivity) {
       return res.status(404).json({ error: 'User activity not found' });
     }
-    res.json(deletedUserActivity);
+    //   res.json(deletedUserActivity);
+    // } catch (error) {
+    //   res.status(500).json({ error: error.message });
+    // }
+    res.json({
+      success: true,
+      data: deletedUserActivity,
+      error: null
+    });
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ success: false, data: null, error: error.message });
   }
 });
 
 
 app.post('/api/story', async (req, res) => {
   try {
-    const newstoryActivity = new storyActivity(req.body);
-    const savedstoryActivity = await newstoryActivity.save();
-    res.json(savedstoryActivity);
+    const newStoryActivity = new StoryActivity(req.body);
+    const savedStoryActivity = await newStoryActivity.save();
+
+    // Oluşturulan hikaye aktivitesinin tüm bilgilerini JSON formatında gönder
+    res.json({
+      success: true,
+      data: savedStoryActivity,
+      error: null
+    });
+
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    res.status(400).json({ success: false, data: null, error: error.message });
   }
 });
 
@@ -310,40 +502,66 @@ app.get('/api/story', async (req, res) => {
   try {
     const storyActivities = await storyActivity.find();
     //res.json(storyActivities);
-    console.log("çalıştı");
-     res.send("yessir");
+    console.log("Calışıyor.");
+    res.json({
+      success: true,
+      data: storyActivities,
+      error: null
+    });
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ success: false, data: null, error: error.message });
   }
 });
 
 // Get a specific user activity by ID
 app.get('/api/story/:id', async (req, res) => {
   try {
-    const storyActivity = await storyActivity.findById(req.params.id);
-    if (!storyActivity) {
-      return res.status(404).json({ error: 'User activity not found' });
+    // ObjectID kontrolü
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Geçersiz ObjectID' });
     }
-    res.json(storyActivity);
+
+    const storyActivity = await StoryActivity.findById(req.params.id);
+
+    if (!storyActivity) {
+      return res.status(404).json({ error: 'Hikaye aktivitesi bulunamadı' });
+    }
+
+    // Hikaye aktivitesinin tüm bilgilerini JSON formatında gönder
+    res.json({
+      success: true,
+      data: storyActivity,
+      error: null
+    });
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ success: false, data: null, error: error.message });
   }
 });
-
 // Update a specific user activity by ID
 app.put('/api/story/:id', async (req, res) => {
   try {
     const updatedstoryActivity = await storyActivity.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true }
+        req.params.id,
+        req.body,
+        { new: true }
     );
     if (!updatedstoryActivity) {
       return res.status(404).json({ error: 'User activity not found' });
     }
-    res.json(updatedstoryActivity);
+    //   res.json(updatedstoryActivity);
+    // } catch (error) {
+    //   res.status(400).json({ error: error.message });
+    // }
+    res.json({
+      success: true,
+      data: updatedStoryActivity,
+      error: null
+    });
+
   } catch (error) {
-    res.status(400).json({ error: error.message });
+    res.status(500).json({ success: false, data: null, error: error.message });
   }
 });
 
@@ -351,17 +569,24 @@ app.put('/api/story/:id', async (req, res) => {
 app.delete('/api/story/:id', async (req, res) => {
   try {
     const deletedstoryActivity = await storyActivity.findByIdAndDelete(
-      req.params.id
+        req.params.id
     );
     if (!deletedstoryActivity) {
       return res.status(404).json({ error: 'User activity not found' });
     }
-    res.json(deletedstoryActivity);
+    //   res.json(deletedstoryActivity);
+    // } catch (error) {
+    //   res.status(500).json({ error: error.message });
+    // }
+    res.json({
+      success: true,
+      data: deletedstoryActivity,
+      error: null
+    });
+
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ success: false, data: null, error: error.message });
   }
 });
 
-
 module.exports = app;
-
