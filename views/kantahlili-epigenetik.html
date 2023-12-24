@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kan Tahlili ve Epigenetik Test</title>
+</head>
+<body>
+
+    <h1>Kan Tahlili ve Epigenetik Test Sonuçları</h1>
+
+    <form id="testForm">
+        <label for="username">Kullanıcı Adı:</label>
+        <input type="text" id="username" name="username" required>
+        <br>
+
+        <label for="kanTahlili">Kan Tahlili Sonucu:</label>
+        <input type="text" id="kanTahlili" name="kanTahlili" required>
+        <br>
+
+        <label for="epigenetikTest">Epigenetik Test Sonucu:</label>
+        <input type="text" id="epigenetikTest" name="epigenetikTest" required>
+        <br>
+
+        <button type="button" onclick="kaydet()">Sonuçları Kaydet</button>
+    </form>
+
+    <script>
+        function kaydet() {
+            // Formdaki verileri al
+            var username = document.getElementById('username').value;
+            var kanTahliliSonucu = document.getElementById('kanTahlili').value;
+            var epigenetikTestSonucu = document.getElementById('epigenetikTest').value;
+
+            // Verileri sakla (örneğin, tarayıcı yerel depolama kullanılabilir)
+            var kayitlar = JSON.parse(localStorage.getItem('testKayitlari')) || {};
+            kayitlar[username] = {
+                kanTahlili: kanTahliliSonucu,
+                epigenetikTest: epigenetikTestSonucu
+            };
+            localStorage.setItem('testKayitlari', JSON.stringify(kayitlar));
+
+            // Kullanıcıya başarı mesajı göster
+            alert('Sonuçlar başarıyla kaydedildi!');
+        }
+    </script>
+
+</body>
+</html>
